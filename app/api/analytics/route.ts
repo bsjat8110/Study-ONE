@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     avgScore: s.testResults.length > 0
       ? Math.round(s.testResults.reduce((sum: number, r: { score: number }) => sum + r.score, 0) / s.testResults.length)
       : 0
-  })).sort((a, b) => b.avgScore - a.avgScore)
+  })).sort((a: any, b: any) => b.avgScore - a.avgScore)
 
   return jsonNoStore({
     data: {
