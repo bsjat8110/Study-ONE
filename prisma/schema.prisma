@@ -1,0 +1,185 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Institute {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  phone     String?
+  address   String?
+  logo      String?
+  plan      PlanType  @default(FREE)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  courses   Course[]
+  payments  Payment[]
+  tests     Test[]
+  users     User[]
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  password     String
+  role         Role          @default(STUDENT)
+  avatar       String?
+  phone        String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  instituteId  String?
+  points           Int           @default(0)
+  dailyTokensUsed Int           @default(0)
+  lastTokenReset  DateTime      @default(now())
+  achievements Achievement[]
+  enrollments  Enrollment[]
+  payments     Payment[]
+  testResults  TestResult[]
+  institute    Institute?    @relation(fields: [instituteId], references: [id])
+
+  @@index([instituteId])
+  @@index([role])
+}
+
+model Course {
+  id            String       @id @default(cuid())
+  title         String
+  description   String?
+  subject       String
+  thumbnail     String?
+  totalChapters Int          @default(0)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  instituteId   String
+  chapters      Chapter[]
+  institute     Institute    @relation(fields: [instituteId], references: [id])
+  enrollments   Enrollment[]
+
+  @@index([instituteId])
+  @@index([isActive])
+}
+
+model Chapter {
+  id        String   @id @default(cuid())
+  title     String
+  order     Int
+  duration  Int      @default(0)
+  videoUrl  String?
+  notes     String?
+  createdAt DateTime @default(now())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id])
+
+  @@index([courseId])
+}
+
+model Enrollment {
+  id          String    @id @default(cuid())
+  progress    Float     @default(0)
+  lastStudied DateTime  @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  userId      String
+  courseId    String
+  course      Course    @relation(fields: [courseId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+}
+
+model Test {
+  id           String       @id @default(cuid())
+  title        String
+  subject      String
+  duration     Int          @default(60)
+  totalMarks   Int          @default(100)
+  passingMarks Int          @default(40)
+  scheduledAt  DateTime
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  instituteId  String
+  institute    Institute    @relation(fields: [instituteId], references: [id])
+  testResults  TestResult[]
+
+  @@index([instituteId])
+  @@index([isActive, scheduledAt])
+}
+
+model TestResult {
+  id          String   @id @default(cuid())
+  score       Float
+  timeTaken   Int
+  submittedAt DateTime @default(now())
+  userId      String
+  testId      String
+  test        Test     @relation(fields: [testId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, testId])
+  @@index([userId])
+  @@index([testId])
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  icon        String
+  earnedAt    DateTime @default(now())
+  userId      String
+  rarity      String   @default("COMMON")
+  type        String
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  amount        Float
+  currency      String        @default("INR")
+  status        PaymentStatus @default(PENDING)
+  method        String?
+  description   String?
+  createdAt     DateTime      @default(now())
+  userId        String
+  instituteId   String?
+  transactionId String?
+  institute     Institute?    @relation(fields: [instituteId], references: [id])
+  user          User          @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([instituteId])
+  @@index([status])
+}
+
+enum Role {
+  STUDENT
+  INSTITUTE_ADMIN
+  SUPER_ADMIN
+}
+
+enum PlanType {
+  FREE
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
