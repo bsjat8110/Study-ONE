@@ -1,8 +1,28 @@
 // app/api/analytics/route.ts
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import prisma from '@/lib/prisma'
 import { requireInstituteAdmin, isNextResponse } from '@/lib/auth-utils'
 import { jsonNoStore } from '@/lib/http'
+
+interface Payment {
+  amount: number
+  createdAt: Date
+}
+
+interface TestResult {
+  score: number
+  test: { passingMarks: number }
+}
+
+interface StudentScore {
+  name: string | null
+  testResults: { score: number }[]
+}
+
+interface TopStudentData {
+  name: string | null
+  avgScore: number
+}
 
 export async function GET(req: NextRequest) {
   const user = await requireInstituteAdmin()
@@ -51,32 +71,36 @@ export async function GET(req: NextRequest) {
     }),
   ])
 
-  const totalRevenue = payments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0)
-  const passCount = testResults.filter((r: { score: number; test: { passingMarks: number } }) => r.score >= r.test.passingMarks).length
-  const avgPassRate = testResults.length > 0
-    ? Math.round((passCount / testResults.length) * 100)
+  const typedPayments = payments as Payment[]
+  const typedTestResults = testResults as TestResult[]
+  const typedTopStudents = topStudents as StudentScore[]
+
+  const totalRevenue = typedPayments.reduce((sum: number, p: Payment) => sum + p.amount, 0)
+  const passCount = typedTestResults.filter((r: TestResult) => r.score >= r.test.passingMarks).length
+  const avgPassRate = typedTestResults.length > 0
+    ? Math.round((passCount / typedTestResults.length) * 100)
     : 0
 
   // Monthly revenue (last 6 months)
   const now = new Date()
-  const monthlyRevenue = Array.from({ length: 6 }, (_, i) => {
+  const monthlyRevenue = Array.from({ length: 6 }, (_: unknown, i: number) => {
     const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
     const monthName = d.toLocaleString('en', { month: 'short' })
-    const revenue = payments
-      .filter((p: { createdAt: Date }) => {
+    const revenue = typedPayments
+      .filter((p: Payment) => {
         const pd = new Date(p.createdAt)
         return pd.getMonth() === d.getMonth() && pd.getFullYear() === d.getFullYear()
       })
-      .reduce((sum: number, p: { amount: number }) => sum + p.amount, 0)
+      .reduce((sum: number, p: Payment) => sum + p.amount, 0)
     return { month: monthName, revenue }
   })
 
-  const topStudentsData = topStudents.map((s: any) => ({
+  const topStudentsData: TopStudentData[] = typedTopStudents.map((s: StudentScore) => ({
     name: s.name,
     avgScore: s.testResults.length > 0
       ? Math.round(s.testResults.reduce((sum: number, r: { score: number }) => sum + r.score, 0) / s.testResults.length)
       : 0
-  })).sort((a: any, b: any) => b.avgScore - a.avgScore)
+  })).sort((a: TopStudentData, b: TopStudentData) => b.avgScore - a.avgScore)
 
   return jsonNoStore({
     data: {
@@ -87,7 +111,7 @@ export async function GET(req: NextRequest) {
       avgPassRate,
       monthlyRevenue,
       topStudents: topStudentsData,
-      recentStudents: recentStudents.map((s: any) => ({
+      recentStudents: recentStudents.map((s) => ({
         id: s.id,
         name: s.name,
         isActive: s.isActive,
