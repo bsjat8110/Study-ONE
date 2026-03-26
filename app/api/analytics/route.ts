@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     }),
   ])
 
-  const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0)
+  const totalRevenue = payments.reduce((sum: number, p) => sum + p.amount, 0)
   const passCount = testResults.filter((r: { score: number; test: { passingMarks: number } }) => r.score >= r.test.passingMarks).length
   const avgPassRate = testResults.length > 0
     ? Math.round((passCount / testResults.length) * 100)
@@ -67,14 +67,14 @@ export async function GET(req: NextRequest) {
         const pd = new Date(p.createdAt)
         return pd.getMonth() === d.getMonth() && pd.getFullYear() === d.getFullYear()
       })
-      .reduce((sum, p) => sum + p.amount, 0)
+      .reduce((sum: number, p) => sum + p.amount, 0)
     return { month: monthName, revenue }
   })
 
   const topStudentsData = topStudents.map(s => ({
     name: s.name,
     avgScore: s.testResults.length > 0
-      ? Math.round(s.testResults.reduce((sum, r) => sum + r.score, 0) / s.testResults.length)
+      ? Math.round(s.testResults.reduce((sum: number, r: { score: number }) => sum + r.score, 0) / s.testResults.length)
       : 0
   })).sort((a, b) => b.avgScore - a.avgScore)
 
