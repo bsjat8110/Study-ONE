@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
     const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
     const monthName = d.toLocaleString('en', { month: 'short' })
     const revenue = payments
-      .filter(p => {
+      .filter((p: { createdAt: Date }) => {
         const pd = new Date(p.createdAt)
         return pd.getMonth() === d.getMonth() && pd.getFullYear() === d.getFullYear()
       })
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     return { month: monthName, revenue }
   })
 
-  const topStudentsData = topStudents.map(s => ({
+  const topStudentsData = topStudents.map((s: any) => ({
     name: s.name,
     avgScore: s.testResults.length > 0
       ? Math.round(s.testResults.reduce((sum: number, r: { score: number }) => sum + r.score, 0) / s.testResults.length)
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
       avgPassRate,
       monthlyRevenue,
       topStudents: topStudentsData,
-      recentStudents: recentStudents.map(s => ({
+      recentStudents: recentStudents.map((s: any) => ({
         id: s.id,
         name: s.name,
         isActive: s.isActive,
