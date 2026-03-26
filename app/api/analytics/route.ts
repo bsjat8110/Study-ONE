@@ -9,7 +9,7 @@ interface Payment {
   createdAt: Date
 }
 
-interface TestResult {
+interface TestResultItem {
   score: number
   test: { passingMarks: number }
 }
@@ -24,6 +24,13 @@ interface TopStudentData {
   avgScore: number
 }
 
+interface RecentStudent {
+  id: string
+  name: string | null
+  isActive: boolean
+  enrollments: { course: { title: string } }[]
+}
+
 export async function GET(req: NextRequest) {
   const user = await requireInstituteAdmin()
   if (isNextResponse(user)) return user
@@ -34,10 +41,10 @@ export async function GET(req: NextRequest) {
     totalStudents,
     activeStudents,
     totalCourses,
-    payments,
-    testResults,
-    topStudents,
-    recentStudents,
+    rawPayments,
+    rawTestResults,
+    rawTopStudents,
+    rawRecentStudents,
   ] = await Promise.all([
     prisma.user.count({ where: { instituteId, role: 'STUDENT' } }),
     prisma.user.count({ where: { instituteId, role: 'STUDENT', isActive: true } }),
@@ -71,14 +78,15 @@ export async function GET(req: NextRequest) {
     }),
   ])
 
-  const typedPayments = payments as Payment[]
-  const typedTestResults = testResults as TestResult[]
-  const typedTopStudents = topStudents as StudentScore[]
+  const payments: Payment[] = rawPayments as Payment[]
+  const testResults: TestResultItem[] = rawTestResults as TestResultItem[]
+  const topStudents: StudentScore[] = rawTopStudents as StudentScore[]
+  const recentStudents: RecentStudent[] = rawRecentStudents as RecentStudent[]
 
-  const totalRevenue = typedPayments.reduce((sum: number, p: Payment) => sum + p.amount, 0)
-  const passCount = typedTestResults.filter((r: TestResult) => r.score >= r.test.passingMarks).length
-  const avgPassRate = typedTestResults.length > 0
-    ? Math.round((passCount / typedTestResults.length) * 100)
+  const totalRevenue = payments.reduce((sum: number, p: Payment) => sum + p.amount, 0)
+  const passCount = testResults.filter((r: TestResultItem) => r.score >= r.test.passingMarks).length
+  const avgPassRate = testResults.length > 0
+    ? Math.round((passCount / testResults.length) * 100)
     : 0
 
   // Monthly revenue (last 6 months)
@@ -86,7 +94,7 @@ export async function GET(req: NextRequest) {
   const monthlyRevenue = Array.from({ length: 6 }, (_: unknown, i: number) => {
     const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
     const monthName = d.toLocaleString('en', { month: 'short' })
-    const revenue = typedPayments
+    const revenue = payments
       .filter((p: Payment) => {
         const pd = new Date(p.createdAt)
         return pd.getMonth() === d.getMonth() && pd.getFullYear() === d.getFullYear()
@@ -95,12 +103,17 @@ export async function GET(req: NextRequest) {
     return { month: monthName, revenue }
   })
 
-  const topStudentsData: TopStudentData[] = typedTopStudents.map((s: StudentScore) => ({
-    name: s.name,
-    avgScore: s.testResults.length > 0
-      ? Math.round(s.testResults.reduce((sum: number, r: { score: number }) => sum + r.score, 0) / s.testResults.length)
-      : 0
-  })).sort((a: TopStudentData, b: TopStudentData) => b.avgScore - a.avgScore)
+  const topStudentsData: TopStudentData[] = topStudents
+    .map((s: StudentScore) => ({
+      name: s.name,
+      avgScore: s.testResults.length > 0
+        ? Math.round(
+            s.testResults.reduce((sum: number, r: { score: number }) => sum + r.score, 0) /
+            s.testResults.length
+          )
+        : 0
+    }))
+    .sort((a: TopStudentData, b: TopStudentData) => b.avgScore - a.avgScore)
 
   return jsonNoStore({
     data: {
@@ -111,7 +124,7 @@ export async function GET(req: NextRequest) {
       avgPassRate,
       monthlyRevenue,
       topStudents: topStudentsData,
-      recentStudents: recentStudents.map((s) => ({
+      recentStudents: recentStudents.map((s: RecentStudent) => ({
         id: s.id,
         name: s.name,
         isActive: s.isActive,
